@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# check Sitemon for Nagios
+# Borja Garrido (CERN) | Jordi Casals (PIC)
+# Usage:
+# Single Flavour:    ./check_lcgsam -a <api_key> -v <vo> -p <profile> -s <site> -f <flavour1>
+
+# Done using JQ package, a tool like sed for JSON data => http://stedolan.github.io/jq/
+
+# PIC ARGUMENT EXAMPLES
+# atlas                 | cms                   | lhcb
+# ATLAS_CRITICAL        | CMS_CRITICAL_FULL     | LHCB_CRITICAL
+# pic                   | T1_ES_PIC             | LCG.PIC.es
+# CREAM-CE | ARCE-CE HTCONDOR-CE | SRM (atlas, cms)
+
+usage () {
+        echo "Usage: ./check_lcgsam -a <api_key> -v <vo> -p <profile> -s <site> -f <flavour>"
+}
+
+# Check if the command has 3 flags and 3 arguments at least. Flavour it's not mandatory.
+if [[ $# -lt 7 ]]; then usage; exit 0; fi
+
+while getopts ":a:v:p:s:f::h:" arg; do
+    case "$arg" in
+        h) usage; exit 0 ;;
+        a) api_key=${OPTARG} ;;
+        v) vo=${OPTARG} ;;
+        p) profile=${OPTARG} ;;
+        s) site=${OPTARG} ;;
+        f) flavour=${OPTARG} ;;
+        #*) usage; exit 1 ;;
+    esac
+done
+
+api_url="https://monit-grafana.cern.ch/api/datasources/proxy/9682/_msearch"
+
+# Get "now" date and "now minus 2 hours"
+min_date=$(date +%s -d "-24 hours")
+max_date=$(date +%s)
+
+# Query needs "\n" string to work
+query='{"search_type":"query_then_fetch","ignore_unavailable":true,"index":"monit_prod_sitemon_agg_endpoint-*","max_concurrent_shard_requests":256}\n
+{"size":10000, "_source":["data.status", "data.dst_hostname"], "query":{"bool":{"filter":[{"range":{"metadata.timestamp":{"gte":'$min_date'000,"lte":'$max_date'000,"format":"epoch_millis"}}}, {"term":{"data.vo":"'$vo'"}},{"term":{"data.profile":"'$profile'"}},{"term":{"data.dst_experiment_site":"'$site'"}},{"term":{"data.service_flavour":"'$flavour'"}}]}},"sort":{"metadata.timestamp":{"order":"desc","unmapped_type":"boolean"}},"script_fields":{}}\n'
+
+# We get data from last 24 hours to get all hostnames that may not appear later if they are critical
+# We filter the names but then we just keep the last_timestamp with status not null received to check status
+json=$(echo -e $query | curl -s -X POST -H 'Content-Type: application/json' -H "Authorization: Bearer $api_key" $api_url --data-binary @- | jq -r '[.responses[].hits.hits[] | select(._source.data.status != null)]')
+
+# If JSON is empty, raise Unknown error
+if [[ $(echo $json) == "" ]]; then
+    echo "ATTENTION: It seems that the dashboard server is failing."
+    exit 3
+
+# If there is no error, works normally
+else
+    # Get latest timestamp available with status in results (question mark avoids error message)
+    last_timestamp=$(echo $json | jq -r '[.[] | select(._source.data.status != null)][0] | .sort[]?')
+    # Get list of hosts
+    hosts=$(echo $json | jq -r '.[]._source.data.dst_hostname' | sort | uniq)
+
+    # If there are no hosts, show an unknown error
+    if [[ $hosts == "" ]]; then
+        echo "UNKNOWN: There are no hosts or arguments are not properly defined"
+        exit 3
+    fi
+
+    # List of all the hosts from last 24 hours
+    for h in $hosts; do
+        hostStatus=$(echo $json | jq -r '.[] | select(.sort[] == '$last_timestamp') | select(._source.data.dst_hostname == "'$h'") | ._source.data.status')
+
+        # If not ok, add it to the list of error (not ok) with status that will be checked later
+        if [[ $hostStatus != "OK" ]]; then
+            problems=$problems"$h: $hostStatus\n"
+        else
+            out=$out"$h: $hostStatus\n"
+        fi
+    done
+
+    # Set the status in case of problem
+    if [[ $problems != "" ]]; then
+        # Check if OK list is empty to set the global check status => Will find a better way in future versions
+        if [[ `echo -e "$out" | grep ": OK"` == "" ]]; then
+            if [[ `echo -e "$problems" | grep ": CRITICAL"` != "" ]]; then exit=2
+            elif [[ `echo -e "$problems" | grep ": DOWNTIME"` != "" ]]; then exit=1
+            elif [[ `echo -e "$problems" | grep ": WARNING"` != "" ]]; then exit=1
+            # Any other option will send an Unknown
+            else exit=3
+            fi
+        # If there is at least one OK system can work normally, so global status is OK
+        # => This specific case inside this if-else would be weird to be fulfilled
+        else exit=0
+        fi
+    else exit=0
+    fi
+
+    # If all ok and no problems
+    if [[ $out != "" && $problems == "" ]]; then
+        echo -e "$flavour: All hosts OK!"
+        echo -e "\nHOSTS\n====="
+        echo -e $out
+    # If we have oks and problems, then print both, separated
+    elif [[ $out != "" &&  $problems != "" ]]; then
+        echo -e "$flavour: Some hosts with problems but flavour working"
+        echo -e "\nHOSTS\n======"
+        echo -e $out
+        echo -e "PROBLEMS\n========"
+        echo -e $problems
+    # Only problems, no need to print ok list
+    elif [[ $out == "" &&  $problems != "" ]]; then
+        echo "$flavour: Something is wrong, take a look at the detailed description"
+        echo -e "\nPROBLEMS\n========"
+        echo -e $problems
+    fi
+
+    # Send exit code
+    exit $exit
+fi
