@@ -19,7 +19,7 @@ Single Flavour
 
 You can see an example of the output here:
 ```
-[root@jcasals01 nagios-plugins-sitemon]# ./check_sitemon -a $API_KEY -v cms -p CMS_CRITICAL -s T1_ES_PIC -f HTCONDOR-CE
+[user@host nagios-plugins-sitemon]# ./check_sitemon -a $API_KEY -v cms -p CMS_CRITICAL -s T1_ES_PIC -f HTCONDOR-CE
 HTCONDOR-CE: All hosts OK!
 
 HOSTS
