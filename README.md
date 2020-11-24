@@ -17,7 +17,18 @@ Single Flavour
 ./check_sitemon -a <api_key> -v <vo> -p <profile> -s <site> -f <flavour>
 ```
 
-NOTE: Multiple flavors at once will be evaluated in the future
+You can see an example of the output here:
+```
+[root@jcasals01 nagios-plugins-sitemon]# ./check_sitemon -a $API_KEY -v cms -p CMS_CRITICAL -s T1_ES_PIC -f HTCONDOR-CE
+HTCONDOR-CE: All hosts OK!
+
+HOSTS
+=====
+ce13.pic.es: OK
+ce14.pic.es: OK
+```
+
+*NOTE: Multiple flavors at once will be evaluated in the future*
 
 ### PIC Argument Examples
 ```
