@@ -3,18 +3,18 @@
 # check Sitemon for Nagios
 # Borja Garrido (CERN) | Jordi Casals (PIC)
 # Usage:
-# Single Flavour:    ./check_lcgsam -a <api_key> -v <vo> -p <profile> -s <site> -f <flavour1>
+# Single Flavour:    ./check_sitemon -a <api_key> -v <vo> -p <profile> -s <site> -f <flavour1>
 
-# Done using JQ package, a tool like sed for JSON data => http://stedolan.github.io/jq/
+# Done using JQ package, a bash tool to deal with JSON data => http://stedolan.github.io/jq/
 
 # PIC ARGUMENT EXAMPLES
 # atlas                 | cms                   | lhcb
 # ATLAS_CRITICAL        | CMS_CRITICAL_FULL     | LHCB_CRITICAL
 # pic                   | T1_ES_PIC             | LCG.PIC.es
-# CREAM-CE | ARCE-CE HTCONDOR-CE | SRM (atlas, cms)
+# CREAM-CE | HTCONDOR-CE | SRM (atlas, cms)
 
 usage () {
-        echo "Usage: ./check_lcgsam -a <api_key> -v <vo> -p <profile> -s <site> -f <flavour>"
+        echo "Usage: ./check_sitemon -a <api_key> -v <vo> -p <profile> -s <site> -f <flavour>"
 }
 
 # Check if the command has 3 flags and 3 arguments at least. Flavour it's not mandatory.
