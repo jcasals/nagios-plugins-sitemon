@@ -39,8 +39,8 @@ min_date=$(date +%s -d "-24 hours")
 max_date=$(date +%s)
 
 # Query needs "\n" string to work
-query='{"search_type":"query_then_fetch","ignore_unavailable":true,"index":"monit_prod_sitemon_agg_endpoint-*","max_concurrent_shard_requests":256}\n
-{"size":10000, "_source":["data.status", "data.dst_hostname"], "query":{"bool":{"filter":[{"range":{"metadata.timestamp":{"gte":'$min_date'000,"lte":'$max_date'000,"format":"epoch_millis"}}}, {"term":{"data.vo":"'$vo'"}},{"term":{"data.profile":"'$profile'"}},{"term":{"data.dst_experiment_site":"'$site'"}},{"term":{"data.service_flavour":"'$flavour'"}}]}},"sort":{"metadata.timestamp":{"order":"desc","unmapped_type":"boolean"}},"script_fields":{}}\n'
+query='{"search_type":"query_then_fetch","ignore_unavailable":true,"index":"monit_prod_sitemon_agg_endpoint-*"}\n
+{"size":10000, "_source":["data.status", "data.dst_hostname"], "query":{"bool":{"filter":[{"range":{"metadata.timestamp":{"gte":'$min_date',"lte":'$max_date',"format":"epoch_second"}}}, {"term":{"data.vo":"'$vo'"}},{"term":{"data.profile":"'$profile'"}},{"term":{"data.dst_experiment_site":"'$site'"}},{"term":{"data.service_flavour":"'$flavour'"}}]}},"sort":{"metadata.timestamp":{"order":"desc","unmapped_type":"boolean"}},"script_fields":{}}\n'
 
 # We get data from last 24 hours to get all hostnames that may not appear later if they are critical
 # We filter the names but then we just keep the last_timestamp with status not null received to check status
